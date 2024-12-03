@@ -1,0 +1,211 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String               @id @default(cuid())
+  name               String
+  firm               String
+  password           String
+  email              String?
+  phoneNumber        String               @db.VarChar(10)
+  role               ROLE                 @default(CUSTOMER)
+  gstNumber          String?              @db.VarChar(15)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  Address            Address[]
+  Cart               Cart[]
+  Order              Order[]
+  Balance            Balance[]
+  TransactionHistory TransactionHistory[]
+
+  @@unique([role, phoneNumber])
+  @@unique([role, email])
+}
+
+// model Admin {
+//   id String @id @default(cuid())
+//   name String @unique
+//   password String
+//   email String
+//   phoneNumber String @db.VarChar(10)
+// }
+
+model Balance {
+  id        String   @id @default(cuid())
+  amount    Decimal  @default(0.0)
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TransactionHistory {
+  id                   String   @id @default(cuid())
+  amount               Decimal
+  opening              Decimal
+  closing              Decimal
+  gatewayTransactionId String
+  createdAt            DateTime @default(now())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id])
+}
+
+model Category {
+  id      String    @id @default(cuid())
+  name    String    @unique
+  Product Product[]
+}
+
+model Product {
+  id              String            @id @default(cuid())
+  name            String
+  availability    Boolean           @default(true)
+  categoryId      String?
+  description     String?
+  OrderedProducts OrderedProducts[]
+  category        Category?         @relation(fields: [categoryId], references: [id])
+  productType     ProductType[]
+  ProductImage    ProductImage[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  url       String
+  publicId  String   @default("")
+  position  Int
+  createdAt DateTime @default(now())
+}
+
+model Unit {
+  id              String            @id @default(cuid())
+  name            String
+  description     String
+  OrderedProducts OrderedProducts[]
+  productType     ProductType[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model ProductType {
+  id           String        @id @default(cuid())
+  productId    String
+  unitId       String
+  price        Float         @db.Real
+  stock        Int           @default(0)
+  availability Boolean       @default(true)
+  Cart         Cart[]
+  product      Product       @relation(fields: [productId], references: [id])
+  unit         Unit          @relation(fields: [unitId], references: [id])
+  TypeOrder    TypePosition?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([productId, unitId])
+}
+
+model TypePosition {
+  id            String      @id @default(cuid())
+  position      Int
+  productTypeId String      @unique
+  productType   ProductType @relation(fields: [productTypeId], references: [id])
+}
+
+model Address {
+  id          String   @id @default(cuid())
+  userId      String
+  line1       String
+  line2       String?
+  city        String
+  state       String
+  pincode     String   @db.VarChar(6)
+  landmark    String?
+  name        String
+  phoneNumber String   @db.VarChar(10)
+  user        User     @relation(fields: [userId], references: [id])
+  Order       Order[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Cart {
+  userId        String
+  quantity      Int
+  productTypeId String
+  createdAt     DateTime?   @default(now())
+  updatedAt     DateTime    @updatedAt
+  productType   ProductType @relation(fields: [productTypeId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+
+  @@id([userId, productTypeId])
+}
+
+model Order {
+  id              String            @id @default(cuid())
+  userId          String
+  price           Float             @db.Real
+  addressId       String
+  payment         PAYMENTSTATUS     @default(PENDING)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  items           Int?
+  products        Int?
+  status          ORDERSTATUS?      @default(PLACED)
+  paymentOn       DateTime?
+  address         Address           @relation(fields: [addressId], references: [id])
+  user            User              @relation(fields: [userId], references: [id])
+  OrderActivity   OrderActivity[]
+  OrderedProducts OrderedProducts[]
+}
+
+model OrderActivity {
+  orderId   String
+  status    ORDERSTATUS @default(PLACED)
+  createdAt DateTime    @default(now())
+  order     Order       @relation(fields: [orderId], references: [id])
+
+  @@id([orderId, status])
+}
+
+model OrderedProducts {
+  orderId   String
+  productId String
+  quantity  Int
+  unitId    String
+  price     Float    @db.Real
+  order     Order    @relation(fields: [orderId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+  unit      Unit     @relation(fields: [unitId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@id([orderId, productId, unitId])
+}
+
+enum ROLE {
+  ADMIN
+  CUSTOMER
+}
+
+enum ORDERSTATUS {
+  PENDING
+  DELIVERED
+  CANCELLED
+  PLACED
+  ACCEPTED
+  DECLINED
+}
+
+enum PAYMENTSTATUS {
+  PENDING
+  RECEIVED
+  NOT_APPLICABLE
+}
